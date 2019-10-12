@@ -1,0 +1,109 @@
+#!/usr/bin/env groovy
+
+import java.net.URL
+
+node
+{
+    try
+    {
+        stage('Download-from-GIT-repo')
+        {
+            //Download git repo
+            echo '==========GitDownload=========='
+            telegramSend('started the download of git repo')
+            git 'https://github.com/Raveendiran-RR/DevOpsClassCodes'
+        }
+        stage('Compile')
+        {
+            //compile the code downloaded from git repo
+            echo '==========Compile=========='
+            telegramSend('started compiling the code downloaded from git repo')
+            withMaven(maven:'MyMaven')
+            {
+                sh 'mvn compile'
+            }
+        }
+        stage('Code-review')
+        {
+            //review the code for error using the pmd plugin in maven
+            echo '==========Code-Review=========='
+            telegramSend('started code review of the complied code')
+            try
+            {
+                withMaven(maven:'MyMaven')
+                {
+                    sh 'mvn pmd:pmd'
+                }
+            }
+            finally
+            {
+                withMaven(maven:'MyMaven')
+                {
+                   pmd canComputeNew: false, defaultEncoding: '', healthy: '', pattern: 'target/pmd.xml', unHealthy: '' 
+                }
+            }
+        }
+
+        stage('Test')
+        {
+            //Test code that is compiled and reviewed and generate reports using junit
+            echo'===========Test========='
+            telegramSend('started testing the reviewed code')
+            try
+            {
+                withMaven(maven:'MyMaven')
+                {
+                    sh 'mvn test'
+                }
+            }
+            finally
+            {
+                junit 'target/surefire-reports/*.xml'
+            }
+        }
+        stage('Coverage-Check')
+        {
+            //Run coverage check report using Cobertura plugin in maven
+            echo '==========Coverage-Check==========='
+            telegramSend('Started Coverage Check')
+            try
+            {
+                withMaven(maven:'MyMaven')
+                {
+                    sh 'mvn cobertura:cobertura -Dcobertura.report.format=xml'                
+                }                
+            }
+            finally
+            {
+                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'target/site/cobertura/coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, lineCoverageTargets: '80, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '80, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+            }
+        }       
+        
+        stage('package')
+        {
+            //package the code that is compiled, reviewed and tested
+            echo '==========Package==========='
+            telegramSend('Started packaging the code')
+            withMaven('MyMaven')
+            {
+                sh 'mvn package'
+            }
+        }
+        //TO DO Deploy the code
+    }
+
+    catch (Exception err)
+    {
+        echo "******Error_found******: ${err} "
+        telegramSend("One your jobs has an error.Refer to the respective logs for more details")
+        telegramSend("${err}")
+    }
+    
+    finally
+    {
+        echo 'Script execution completed'
+        telegramSend("Script execution completed")
+    }
+        
+    
+}
