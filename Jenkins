@@ -84,7 +84,7 @@ node
             //package the code that is compiled, reviewed and tested
             echo '==========Package==========='
             telegramSend('Started packaging the code')
-            withMaven('MyMaven')
+            withMaven(maven:'MyMaven')
             {
                 sh 'mvn package'
             }
